@@ -13,7 +13,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import WebDriverException, NoSuchElementException
 
-
 class Webscraping:
   
   def __init__(self):
@@ -22,10 +21,10 @@ class Webscraping:
     options.add_argument(f"user-agent={user_agent}")
     
     # Não abrir o browser
-    options.add_argument("headless")
+    #options.add_argument("headless")
     
     # Abrir o browser maximizado
-    #options.add_argument("--start-maximized")
+    options.add_argument("--start-maximized")
     options.add_argument("--disable-web-security")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-notifications")
@@ -65,10 +64,10 @@ class Webscraping:
           self.driver = None
         print(e)   
 
-  def GetWordMeans(self, word):
+  def get_word_means(self, word):
     url = "https://dictionary.cambridge.org/pt/dicionario/ingles/"
     self.driver.get(url + word)
-    
+
     #####################################################################################
     #Caso a box de políticas de cookie estiver atrapalhando, descomentar as linhas abaixo
     #time.sleep(3)
@@ -82,32 +81,47 @@ class Webscraping:
     if (len(means_box) > 0):
       for mean in means_box:
         means.append(mean.text)
-      
-    elements = self.driver.find_elements(By.XPATH, value=f"//source[@type='audio/ogg']")
-    audioLink = elements[1].get_attribute("src")
     
     examples_list = []
     try:
       examples_box = self.driver.find_element(By.XPATH, value=f"//div[@class='def-body ddef_b']")
-      examples_list = self._getListOfStrFromWebElement('div', 'examp dexamp', examples_box)
+      examples_list = self._getListOfTextFromWebElement('div', 'examp dexamp', examples_box)
     except NoSuchElementException:
         print('Element not found')
       
     if len(examples_list) < 1:
       try:
         examples_box = self.driver.find_element(By.XPATH, value=f"//div[@class='daccord']")
-        examples_list = self._getListOfStrFromWebElement('li', 'eg dexamp hax', examples_box)
+        examples_list = self._getListOfTextFromWebElement('li', 'eg dexamp hax', examples_box)
       except NoSuchElementException:
         print('Element not found')  
+    
+    elements = None
+    if '-' in word:
+      elements_box = self.driver.find_elements(By.XPATH, value=f"//div[@class='pos-header dpos-h']")
+      for element in elements_box:
+        text = element.find_element(By.XPATH, value=f".//span[@class='hw dhw']").text
+        if word == text:
+          elements = element.find_elements(By.XPATH, value=f".//source[@type='audio/ogg']")
+          break     
+    else:
+      elements = self.driver.find_elements(By.XPATH, value=f"//source[@type='audio/ogg']")
+      
+    
+    if elements:
+      audioLink = elements[1].get_attribute("src")
+    else:
+      audioLink = None
       
     if __name__ != '__main__':
       return means[0:3], audioLink, examples_list[0:4]
-    print(f'Palavra: {means}')
+    else:
+      print(f'Palavra: {means}')
 
-  def DestructorWebDriver(self):
+  def _destructor_web_driver(self):
     self.driver.quit()
     
-  def _getListOfStrFromWebElement(self, htmlElement, className, WebElement):
+  def _getListOfTextFromWebElement(self, htmlElement, className, WebElement):
     listOfStr = []
     for element in WebElement.find_elements(By.XPATH, value=f".//{htmlElement}[@class='{className}']"):
       listOfStr.append(element.text)
@@ -117,7 +131,9 @@ if __name__ == '__main__':
   wp = Webscraping()
   if not wp.driver == None:
     word = input("Digite a palavra: ")
-    wp.GetWordMeans(word)
-    wp.DestructorWebDriver()
+    word = word.replace(" ", "-")
+    print(word)
+    wp.get_word_means(word)
+    wp._destructor_web_driver()
   else:
     print('Something went wrong during WebDriver loading.')
